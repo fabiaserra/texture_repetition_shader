@@ -1,0 +1,45 @@
+shader textureNoTile
+(
+    vector UVW = vector(u,v,0),
+    string Filename = "" [[ string label="File name", string help="File path of the texture to repeat" ]], 
+    float  Frequency = 100.0,
+    output color Out = 0.0,
+)
+{
+    vector uvfreq = UVW * Frequency;
+    vector p = floor(uvfreq);
+    vector f = uvfreq - p;
+    float gamma = 1.0;
+
+    // Temporary workaround for color space issues
+    if (!endswith(Filename, ".exr") &&
+        !endswith(Filename, ".EXR") &&
+        !endswith(Filename, ".hdr") &&
+        !endswith(Filename, ".HDR") &&
+        !endswith(Filename, ".tx")  &&
+        !endswith(Filename, ".TX"))
+    {
+        gamma = 2.2; //srgb approx
+    }
+
+    // voronoi contribution
+    vector va = vector(0, 0, 0);
+    float w1 = 0.0;
+    for (int j = -1; j <= 1; j++)
+    {
+        for (int i = -1; i <= 1; i++)
+        {
+            vector g = vector(float(i), float(j), 0);
+            vector o = noise("cell", p.x + g.x, p.y + g.y);
+            vector r = vector(g.x - f.x + o.x, g.y - f.y + o.y, 0.0);
+            float d = dot(r, r);
+            float w = exp(-5.0*d);  
+            color c = texture(Filename, uvfreq.x + o.y, 1.0 - uvfreq.y + o.z, "wrap", "periodic");
+            if (gamma != 1.0) c = pow(c, gamma);
+            va += w*c;
+            w1 += w;
+        }
+    }   
+    // normalization
+    Out = va / w1;
+}
