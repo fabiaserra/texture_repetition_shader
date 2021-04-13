@@ -2,7 +2,7 @@ shader textureNoTile
 (
     vector UVW = vector(u,v,0),
     string Filename = "" [[ string label="File name", string help="File path of the texture to repeat" ]], 
-    float  Frequency = 100.0,
+    float  Frequency = 1,
     output color Out = 0.0,
 )
 {
