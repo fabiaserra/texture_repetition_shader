@@ -1,8 +1,10 @@
 shader textureNoTile
 (
-    vector UVW = vector(u,v,0),
-    string Filename = "" [[ string label="File name", string help="File path of the texture to repeat" ]], 
+    vector UVW = vector(u, v, 0),
+    string Filename = "" [[ string label="File name", string help="File path of the texture to repeat" ]],
     float  Frequency = 1,
+    int    Seed = 1 [[ string help="The random seed" ]],
+    int    Technique = 1 [[ string help="Which tiling technique to use (1, 2 or 3)" ]],
     output color Out = 0.0,
 )
 {
@@ -22,24 +24,80 @@ shader textureNoTile
         gamma = 2.2; //srgb approx
     }
 
-    // voronoi contribution
-    vector va = vector(0, 0, 0);
-    float w1 = 0.0;
-    for (int j = -1; j <= 1; j++)
+    if (Technique == 1)
     {
-        for (int i = -1; i <= 1; i++)
+        // generate per-tile transform
+        vector ofa = noise("cell", p + vector(0, 0, 0), Seed);
+        vector ofb = noise("cell", p + vector(1, 0, 0), Seed);
+        vector ofc = noise("cell", p + vector(0, 1, 0), Seed);
+        vector ofd = noise("cell", p + vector(1, 1, 0), Seed);
+
+        // transform per-tile uvs
+        vector signa = sign(ofa-0.5);
+        vector signb = sign(ofb-0.5);
+        vector signc = sign(ofc-0.5);
+        vector signd = sign(ofa-0.5);
+
+        vector uva = UVW*signa + ofa;
+        vector uvb = UVW*signb + ofb;
+        vector uvc = UVW*signc + ofc;
+        vector uvd = UVW*signd + ofd;
+
+        // fetch and blend
+        vector b = smoothstep(0.25, 0.75, f);
+
+        // Out = texture(Filename, uva.x, 1.0 - uva.y, "wrap", "periodic");
+        Out = mix(  mix(texture(Filename, uva.x, 1.0 - uva.y, "wrap", "periodic"),
+                        texture(Filename, uvb.x, 1.0 - uvb.y, "wrap", "periodic"), b[0]),
+                    mix(texture(Filename, uvc.x, 1.0 - uvc.y, "wrap", "periodic"),
+                        texture(Filename, uvd.x, 1.0 - uvd.y, "wrap", "periodic"), b[0]), b[1]);
+
+    }
+    else if (Technique == 2)
+    {
+        // voronoi contribution
+        vector va = vector(0, 0, 0);
+        float w1 = 0.0;
+        for (int j = -1; j <= 1; j++)
         {
-            vector g = vector(float(i), float(j), 0);
-            vector o = noise("cell", p.x + g.x, p.y + g.y);
-            vector r = vector(g.x - f.x + o.x, g.y - f.y + o.y, 0.0);
-            float d = dot(r, r);
-            float w = exp(-5.0*d);  
-            color c = texture(Filename, uvfreq.x + o.y, 1.0 - uvfreq.y + o.z, "wrap", "periodic");
-            if (gamma != 1.0) c = pow(c, gamma);
-            va += w*c;
-            w1 += w;
+            for (int i = -1; i <= 1; i++)
+            {
+                vector g = vector(float(i), float(j), 0);
+                vector o = noise("cell", p+g, Seed);
+                vector r = vector(g.x - f.x + o.x, g.y - f.y + o.y, 0.0);
+                float d = dot(r, r);
+                float w = exp(-5.0*d);
+                color c = texture(Filename, uvfreq.x + o.x, 1.0 - uvfreq.y + o.y, "wrap", "periodic");
+                if (gamma != 1.0) c = pow(c, gamma);
+                va += w*c;
+                w1 += w;
+            }
         }
-    }   
-    // normalization
-    Out = va / w1;
+        // normalization
+        Out = va / w1;
+    }
+    else if (Technique == 3)
+    {
+        float k = texture(Filename, 0.005 * UVW.x, 1.0 - 0.005 * UVW.y, "wrap", "periodic"); // cheap (cache friendly) lookup
+
+        // compute index
+        float index = k*8.0;
+        float i = floor(index);
+        float f = index - i;
+
+        // offsets for the different virtual patterns
+        vector offa = sin(vector(3.0, 7.0, 0.0) * (i + 0.0)); // can replace with any other hash
+        vector offb = sin(vector(3.0, 7.0, 0.0) * (i + 1.0)); // can replace with any other hash
+
+        // sample the two closest virtual patterns
+        color cola = texture(Filename, UVW.x + offa.x, 1.0 - UVW.y + offa.y , "wrap", "periodic");
+        if (gamma != 1.0) c = pow(cola, gamma);
+        color colb = texture(Filename, UVW.x + offb.x, 1.0 - UVW.y + offb.y , "wrap", "periodic");
+        if (gamma != 1.0) c = pow(colb, gamma);
+
+        float sum(vector v) { return v.x + v.y + v.z; }
+
+        // interpolate between the two virtual patterns
+        Out = mix(cola, colb, smoothstep(0.2, 0.8, f - 0.1 * sum(cola - colb)));
+    }
 }
