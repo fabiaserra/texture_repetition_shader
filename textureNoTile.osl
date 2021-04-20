@@ -1,8 +1,10 @@
+// OSL version of Inigo Quilez texture repetition shaders: https://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
+
 shader textureNoTile
 (
     vector UVW = vector(u, v, 0),
     string Filename = "" [[ string label="File name", string help="File path of the texture to repeat" ]],
-    float  Frequency = 1,
+    float  Frequency = 1 [[ string help="Multiplies the UV vector by this number to create more tiles" ]],
     int    Seed = 1 [[ string help="The random seed" ]],
     int    Technique = 1 [[ string help="Which tiling technique to use (1, 2 or 3)" ]],
     output color Out = 0.0,
