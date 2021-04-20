@@ -93,9 +93,9 @@ shader textureNoTile
 
         // sample the two closest virtual patterns
         color cola = texture(Filename, UVW.x + offa.x, 1.0 - UVW.y + offa.y , "wrap", "periodic");
-        if (gamma != 1.0) c = pow(cola, gamma);
+        if (gamma != 1.0) cola = pow(cola, gamma);
         color colb = texture(Filename, UVW.x + offb.x, 1.0 - UVW.y + offb.y , "wrap", "periodic");
-        if (gamma != 1.0) c = pow(colb, gamma);
+        if (gamma != 1.0) colb = pow(colb, gamma);
 
         float sum(vector v) { return v.x + v.y + v.z; }
 
