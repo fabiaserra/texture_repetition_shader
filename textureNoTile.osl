@@ -5,6 +5,8 @@ shader textureNoTile
     vector UVW = vector(u, v, 0),
     string Filename = "" [[ string label="File name", string help="File path of the texture to repeat" ]],
     float  Frequency = 1 [[ string help="Multiplies the UV vector by this number to create more tiles" ]],
+    float  ColorAvg = 0.5 [[ string help="Color average of input texture" ]],
+    float  Contrast = 1.2 [[ string help="Adds a bit of contrast to final color" ]],
     int    Seed = 1 [[ string help="The random seed" ]],
     int    Technique = 1 [[ string help="Which tiling technique to use (1, 2 or 3)" ]],
     output color Out = 0.0,
@@ -48,12 +50,13 @@ shader textureNoTile
         // fetch and blend
         vector b = smoothstep(0.25, 0.75, f);
 
-        // Out = texture(Filename, uva.x, 1.0 - uva.y, "wrap", "periodic");
         Out = mix(  mix(texture(Filename, uva.x, 1.0 - uva.y, "wrap", "periodic"),
                         texture(Filename, uvb.x, 1.0 - uvb.y, "wrap", "periodic"), b[0]),
                     mix(texture(Filename, uvc.x, 1.0 - uvc.y, "wrap", "periodic"),
                         texture(Filename, uvd.x, 1.0 - uvd.y, "wrap", "periodic"), b[0]), b[1]);
 
+        // increase contrast
+        Out = ColorAvg + Contrast*(Out-ColorAvg);
     }
     else if (Technique == 2)
     {
@@ -77,6 +80,9 @@ shader textureNoTile
         }
         // normalization
         Out = va / w1;
+
+        // increase contrast
+        Out = ColorAvg + Contrast*(Out-ColorAvg);
     }
     else if (Technique == 3)
     {
@@ -101,5 +107,8 @@ shader textureNoTile
 
         // interpolate between the two virtual patterns
         Out = mix(cola, colb, smoothstep(0.2, 0.8, f - 0.1 * sum(cola - colb)));
+
+        // increase contrast
+        Out = ColorAvg + Contrast*(Out-ColorAvg);
     }
 }
